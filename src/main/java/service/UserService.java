@@ -35,8 +35,7 @@ public class UserService {
 	}
 
 	public User updateUser(Long id, User updatedUser) {
-		User existing = userRepository.findById(id)
-				.orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+		User existing = userRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("User" + id));
 		existing.setName(updatedUser.getName());
 		existing.setEmail(updatedUser.getEmail());
 		existing.setAge(updatedUser.getAge());
@@ -45,7 +44,7 @@ public class UserService {
 
 	public void deleteUser(long id) {
 		if (!userRepository.existsById(id)) {
-			throw new ResourceNotFoundException("User not found with id: " + id);
+			throw new ResourceNotFoundException("User" + id);
 		}
 		userRepository.deleteById(id);
 	}

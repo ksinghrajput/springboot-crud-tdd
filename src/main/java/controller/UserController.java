@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.validation.Valid;
 import model.User;
 import service.UserService;
 
@@ -26,8 +27,8 @@ public class UserController {
 	private UserService userService;
 
 	@GetMapping
-	public List<User> getAllUsers() {
-		return userService.getAllUsers();
+	public ResponseEntity<List<User>> getAllUsers() {
+		return ResponseEntity.ok(userService.getAllUsers());
 
 	}
 
@@ -42,14 +43,14 @@ public class UserController {
 		return userService.getUserByEmail(email);
 	}
 
-	@PostMapping("/")
-	public ResponseEntity<User> createUser(@RequestBody User user) {
+	@PostMapping
+	public ResponseEntity<User> createUser(@Valid @RequestBody User user) {
 		User saved = userService.createUser(user);
 		return ResponseEntity.status(HttpStatus.CREATED).body(saved);
 	}
 
 	@PutMapping("/{id}")
-	public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody User newUser) {
+	public ResponseEntity<User> updateUser(@PathVariable Long id, @Valid @RequestBody User newUser) {
 		User updated = userService.updateUser(id, newUser);
 		return ResponseEntity.ok(updated);
 
