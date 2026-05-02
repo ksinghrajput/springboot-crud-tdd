@@ -20,6 +20,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.context.ContextConfiguration;
 
+import model.Role;
 import model.User;
 
 @DataJpaTest
@@ -41,7 +42,7 @@ class UserRepositoryTest {
 	@Test
 	@DisplayName("save persists the user and generates an id")
 	void save_assignsId() {
-		User user = new User(null, "Kishan", "kishan@example.com", 25);
+		User user = new User(null, "Kishan", "kishan@example.com", 25, "hashedpw", Role.USER);
 
 		User saved = userRepository.save(user);
 
@@ -52,7 +53,7 @@ class UserRepositoryTest {
 	@Test
 	@DisplayName("findById returns the user previously persisted via TestEntityManager")
 	void findById_returnsPersistedUser() {
-		User persisted = em.persistAndFlush(new User(null, "Asha", "asha@example.com", 30));
+		User persisted = em.persistAndFlush(new User(null, "Asha", "asha@example.com", 30, "hashedpw", Role.USER));
 
 		Optional<User> found = userRepository.findById(persisted.getId());
 
@@ -63,7 +64,7 @@ class UserRepositoryTest {
 	@Test
 	@DisplayName("findByEmail returns the matching user")
 	void findByEmail_whenPresent_returnsUser() {
-		em.persistAndFlush(new User(null, "Ram", "ram@example.com", 40));
+		em.persistAndFlush(new User(null, "Ram", "ram@example.com", 40, "hashedpw", Role.USER));
 
 		Optional<User> found = userRepository.findByEmail("ram@example.com");
 
@@ -82,9 +83,9 @@ class UserRepositoryTest {
 	@Test
 	@DisplayName("findByNameContaining returns all users whose name contains the keyword")
 	void findByNameContaining_returnsMatches() {
-		em.persistAndFlush(new User(null, "Kishan Singh", "k1@example.com", 25));
-		em.persistAndFlush(new User(null, "Kishore",      "k2@example.com", 28));
-		em.persistAndFlush(new User(null, "Asha",         "a@example.com",  30));
+		em.persistAndFlush(new User(null, "Kishan Singh", "k1@example.com", 25, "hashedpw", Role.USER));
+		em.persistAndFlush(new User(null, "Kishore",      "k2@example.com", 28, "hashedpw", Role.USER));
+		em.persistAndFlush(new User(null, "Asha",         "a@example.com",  30, "hashedpw", Role.USER));
 
 		List<User> matches = userRepository.findByNameContaining("Kish");
 
@@ -94,7 +95,7 @@ class UserRepositoryTest {
 	@Test
 	@DisplayName("deleteById removes the user from the database")
 	void deleteById_removesUser() {
-		User persisted = em.persistAndFlush(new User(null, "ToDelete", "del@example.com", 22));
+		User persisted = em.persistAndFlush(new User(null, "ToDelete", "del@example.com", 22, "hashedpw", Role.USER));
 		Long id = persisted.getId();
 
 		userRepository.deleteById(id);
@@ -106,9 +107,9 @@ class UserRepositoryTest {
 	@Test
 	@DisplayName("saving two users with the same email violates the unique constraint")
 	void uniqueEmail_violation_throws() {
-		em.persistAndFlush(new User(null, "A", "dup@example.com", 20));
+		em.persistAndFlush(new User(null, "A", "dup@example.com", 20, "hashedpw", Role.USER));
 
-		User duplicate = new User(null, "B", "dup@example.com", 21);
+		User duplicate = new User(null, "B", "dup@example.com", 21, "hashedpw", Role.USER);
 
 		assertThrows(DataIntegrityViolationException.class,
 				() -> userRepository.saveAndFlush(duplicate));

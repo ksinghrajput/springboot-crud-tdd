@@ -3,6 +3,7 @@ package service;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -24,6 +25,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import exception.ResourceNotFoundException;
+import model.Role;
 import model.User;
 import repository.UserRepository;
 
@@ -40,13 +42,24 @@ class UserServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		sampleUser = new User(1L, "Kishan", "kishan@example.com", 25);
+		sampleUser = new User(1L, "Kishan", "kishan@example.com", 25, "hashedpw", Role.USER);
+	}
+
+	@Test
+	void shouldCreateUser() {
+		User user = new User(null, "Kanhaiya", "kanhaiya@xxx.com", 30, "hashedpw", Role.USER);
+		User saved = userService.createUser(user);
+
+		assertNotNull(saved);
+		assertNotNull(saved.getId());
+		assertEquals("Kanhaiya", saved.getName());
+
 	}
 
 	@Test
 	@DisplayName("getAllUsers returns every user from the repository")
 	void getAllUsers_returnsList() {
-		User second = new User(2L, "Asha", "asha@example.com", 30);
+		User second = new User(2L, "Asha", "asha@example.com", 30, "hashedpw", Role.USER);
 		when(userRepository.findAll()).thenReturn(Arrays.asList(sampleUser, second));
 
 		List<User> result = userService.getAllUsers();
@@ -64,9 +77,7 @@ class UserServiceTest {
 		Optional<User> result = userService.getUserById(1L);
 
 		assertTrue(result.isPresent());
-		assertAll(
-				() -> assertEquals(1L, result.get().getId()),
-				() -> assertEquals("Kishan", result.get().getName()),
+		assertAll(() -> assertEquals(1L, result.get().getId()), () -> assertEquals("Kishan", result.get().getName()),
 				() -> assertEquals("kishan@example.com", result.get().getEmail()),
 				() -> assertEquals(25, result.get().getAge()));
 		verify(userRepository).findById(1L);
@@ -96,8 +107,8 @@ class UserServiceTest {
 	@Test
 	@DisplayName("createUser saves and returns the persisted user")
 	void createUser_savesAndReturnsUser() {
-		User toSave = new User(null, "New", "new@example.com", 20);
-		User saved = new User(5L, "New", "new@example.com", 20);
+		User toSave = new User(null, "New", "new@example.com", 20, "hashedpw", Role.USER);
+		User saved = new User(5L, "New", "new@example.com", 20, "hashedpw", Role.USER);
 		when(userRepository.save(toSave)).thenReturn(saved);
 
 		User result = userService.createUser(toSave);
@@ -109,14 +120,13 @@ class UserServiceTest {
 	@Test
 	@DisplayName("updateUser overwrites fields of an existing user and saves it")
 	void updateUser_whenFound_updatesFields() {
-		User updates = new User(null, "Kishan Updated", "kishan.new@example.com", 26);
+		User updates = new User(null, "Kishan Updated", "kishan.new@example.com", 26, "hashedpw", Role.USER);
 		when(userRepository.findById(1L)).thenReturn(Optional.of(sampleUser));
 		when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
 		User result = userService.updateUser(1L, updates);
 
-		assertAll(
-				() -> assertEquals("Kishan Updated", result.getName()),
+		assertAll(() -> assertEquals("Kishan Updated", result.getName()),
 				() -> assertEquals("kishan.new@example.com", result.getEmail()),
 				() -> assertEquals(26, result.getAge()));
 		verify(userRepository).findById(1L);
@@ -126,7 +136,7 @@ class UserServiceTest {
 	@Test
 	@DisplayName("updateUser throws ResourceNotFoundException when id is unknown")
 	void updateUser_whenMissing_throws() {
-		User updates = new User(null, "X", "x@example.com", 1);
+		User updates = new User(null, "X", "x@example.com", 1, "hashedpw", Role.USER);
 		when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
 		assertThrows(ResourceNotFoundException.class, () -> userService.updateUser(99L, updates));

@@ -22,6 +22,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
@@ -33,10 +34,12 @@ import tools.jackson.databind.ObjectMapper;
 
 import exception.GlobalExceptionHandler;
 import exception.ResourceNotFoundException;
+import model.Role;
 import model.User;
 import service.UserService;
 
 @WebMvcTest(controllers = UserController.class)
+@AutoConfigureMockMvc(addFilters = false)
 @Import({ UserController.class, GlobalExceptionHandler.class })
 @ContextConfiguration(classes = UserControllerTest.TestConfig.class)
 class UserControllerTest {
@@ -58,7 +61,7 @@ class UserControllerTest {
 
 	@BeforeEach
 	void setUp() {
-		sampleUser = new User(1L, "Kishan", "kishan@example.com", 25);
+		sampleUser = new User(1L, "Kishan", "kishan@example.com", 25, "hashedpw", Role.USER);
 	}
 
 	@Test
@@ -89,8 +92,8 @@ class UserControllerTest {
 	@Test
 	@DisplayName("POST /api/users returns 201 when payload is valid")
 	void createUser_returns201() throws Exception {
-		User incoming = new User(null, "Asha", "asha@example.com", 30);
-		User saved = new User(2L, "Asha", "asha@example.com", 30);
+		User incoming = new User(null, "Asha", "asha@example.com", 30, "password123", Role.USER);
+		User saved = new User(2L, "Asha", "asha@example.com", 30, "hashedpw", Role.USER);
 		when(userService.createUser(any(User.class))).thenReturn(saved);
 
 		mockMvc.perform(post("/api/users")
@@ -104,8 +107,8 @@ class UserControllerTest {
 	@Test
 	@DisplayName("PUT /api/users/{id} returns 200 with the updated user")
 	void updateUser_returnsUpdated() throws Exception {
-		User updates = new User(null, "Kishan Updated", "k.new@example.com", 26);
-		User saved = new User(1L, "Kishan Updated", "k.new@example.com", 26);
+		User updates = new User(null, "Kishan Updated", "k.new@example.com", 26, "password123", Role.USER);
+		User saved = new User(1L, "Kishan Updated", "k.new@example.com", 26, "hashedpw", Role.USER);
 		when(userService.updateUser(eq(1L), any(User.class))).thenReturn(saved);
 
 		mockMvc.perform(put("/api/users/{id}", 1L)
@@ -119,7 +122,7 @@ class UserControllerTest {
 	@Test
 	@DisplayName("PUT /api/users/{id} returns 404 when the id does not exist")
 	void updateUser_whenMissing_returns404() throws Exception {
-		User updates = new User(null, "X", "x@example.com", 20);
+		User updates = new User(null, "X", "x@example.com", 20, "password123", Role.USER);
 		when(userService.updateUser(eq(99L), any(User.class)))
 				.thenThrow(new ResourceNotFoundException("User 99"));
 

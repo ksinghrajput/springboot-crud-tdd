@@ -41,18 +41,73 @@ Use JDBC URL `jdbc:h2:mem:testdb` with user `sa` and no password.
 java -jar target/demo-0.0.1-SNAPSHOT.jar
 ```
 
+## Authentication
+
+The API uses **stateless JWT (HS256) authentication**. Public endpoints: `/api/auth/register`, `/api/auth/login`, `/h2-console/**`. Everything under `/api/users/**` requires a valid `Authorization: Bearer <token>` header.
+
+A seeded admin is created on first startup:
+
+| Email             | Password   | Role  |
+|-------------------|------------|-------|
+| `admin@demo.com`  | `admin123` | ADMIN |
+
+### Auth endpoints
+
+| Method | Path                  | Body                              | Success |
+|--------|-----------------------|-----------------------------------|---------|
+| POST   | `/api/auth/register`  | `{ name, email, password, age }`  | 201     |
+| POST   | `/api/auth/login`     | `{ email, password }`             | 200     |
+
+### Auth flow (curl)
+
+```bash
+# 1. Register
+curl -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Kishan","email":"kishan@example.com","password":"secret123","age":25}'
+
+# 2. Login -> capture token
+TOKEN=$(curl -sX POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"kishan@example.com","password":"secret123"}' | jq -r .token)
+
+# 3. Call protected endpoint
+curl http://localhost:8080/api/users \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Role-based access on `/api/users/**`
+
+| Method | Path                       | Required role     |
+|--------|----------------------------|-------------------|
+| GET    | `/api/users/**`            | USER or ADMIN     |
+| POST   | `/api/users`               | ADMIN             |
+| PUT    | `/api/users/{id}`          | ADMIN             |
+| DELETE | `/api/users/{id}`          | ADMIN             |
+
+### JWT configuration
+
+Set in `src/main/resources/application.properties` (overridable via env):
+
+```properties
+app.jwt.secret=${JWT_SECRET:change-me-in-prod-min-32-chars-please-1234}
+app.jwt.expiration-ms=3600000
+```
+
+> The default secret is for local dev only. Override `JWT_SECRET` in production with a value of at least 32 characters.
+
 ## REST API
 
-Base path: `/api/users`
+Base path: `/api/users` — **all endpoints require authentication**.
 
-| Method | Path                          | Description                       | Success |
-|--------|-------------------------------|-----------------------------------|---------|
-| GET    | `/api/users`                  | List all users                    | 200     |
-| GET    | `/api/users/{id}`             | Get user by id                    | 200     |
-| GET    | `/api/users/email/{email}`    | Get user by email                 | 200     |
-| POST   | `/api/users`                  | Create a user (validated payload) | 201     |
-| PUT    | `/api/users/{id}`             | Update an existing user           | 200     |
-| DELETE | `/api/users/{id}`             | Delete a user                     | 204     |
+| Method | Path                          | Description                       | Success | Role          |
+|--------|-------------------------------|-----------------------------------|---------|---------------|
+| GET    | `/api/users`                  | List all users                    | 200     | USER or ADMIN |
+| GET    | `/api/users/{id}`             | Get user by id                    | 200     | USER or ADMIN |
+| GET    | `/api/users/email/{email}`    | Get user by email                 | 200     | USER or ADMIN |
+| POST   | `/api/users`                  | Create a user (validated payload) | 201     | ADMIN         |
+| PUT    | `/api/users/{id}`             | Update an existing user           | 200     | ADMIN         |
+| DELETE | `/api/users/{id}`             | Delete a user                     | 204     | ADMIN         |
 
 ### User payload
 
@@ -88,6 +143,9 @@ Handled centrally by `exception.GlobalExceptionHandler`. Shape:
 |--------------------------------------|--------|
 | `ResourceNotFoundException`          | 404    |
 | `DataIntegrityViolationException`    | 409    |
+| `BadCredentialsException`            | 401    |
+| `AuthenticationException`            | 401    |
+| `AccessDeniedException`              | 403    |
 | `IllegalArgumentException`           | 400    |
 | `MethodArgumentTypeMismatchException`| 400    |
 | Any other `Exception`                | 500    |
@@ -119,16 +177,31 @@ Each layer uses a different technique on purpose — this follows the classic **
 src/main/java/
 ├── com/example/demo/
 │   └── DemoApplication.java          @SpringBootApplication entry point
+├── config/
+│   ├── SecurityConfig.java           SecurityFilterChain + auth rules
+│   └── AdminSeeder.java              CommandLineRunner that seeds admin@demo.com
 ├── controller/
-│   └── UserController.java           REST endpoints
+│   ├── UserController.java           REST endpoints (protected)
+│   └── AuthController.java           /api/auth/register, /api/auth/login
 ├── service/
-│   └── UserService.java              Business logic
+│   ├── UserService.java              Business logic
+│   └── AuthService.java              Register + login orchestration
 ├── repository/
 │   └── UserRepository.java           Spring Data JPA interface
+├── security/
+│   ├── JwtService.java               Generate + parse HS256 tokens (JJWT)
+│   ├── JwtAuthFilter.java            OncePerRequestFilter — extracts Bearer token
+│   ├── JwtAuthenticationEntryPoint.java  Returns JSON 401 on missing/bad auth
+│   └── CustomUserDetailsService.java Loads users by email for AuthenticationManager
+├── dto/
+│   ├── RegisterRequest.java
+│   ├── LoginRequest.java
+│   └── AuthResponse.java
 ├── model/
-│   └── User.java                     JPA entity with validation
+│   ├── User.java                     JPA entity (now includes password + role)
+│   └── Role.java                     enum { USER, ADMIN }
 └── exception/
-    ├── GlobalExceptionHandler.java   @RestControllerAdvice
+    ├── GlobalExceptionHandler.java   @RestControllerAdvice (auth handlers added)
     ├── ResourceNotFoundException.java
     └── ErrorResponse.java
 ```
@@ -138,7 +211,7 @@ src/main/java/
 This project deliberately uses **top-level packages** (`controller`, `service`, `repository`, `model`, `exception`) instead of nesting them under `com.example.demo`. By default, `@SpringBootApplication` only component-scans its own package and subpackages, so `DemoApplication` is annotated with explicit scan instructions:
 
 ```java
-@SpringBootApplication(scanBasePackages = { "com.example.demo", "controller", "service", "exception" })
+@SpringBootApplication(scanBasePackages = { "com.example.demo", "controller", "service", "exception", "config", "security" })
 @EntityScan("model")
 @EnableJpaRepositories("repository")
 ```
